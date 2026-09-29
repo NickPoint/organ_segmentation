@@ -19,13 +19,13 @@ Mean validation Dice over the 5 folds:
 | DINOv3 U-Net | 2.5D | yes | per image | 0.695 |
 
 The analysis behind these numbers, the DINOv3 feature and attention study and the conclusions are in
-`sample_loading.ipynb`.
+`organ_segmentation.ipynb`.
 
 ## Files
 
 | file | contents |
 |---|---|
-| `sample_loading.ipynb` | data analysis, all experiments, results and the DINOv3 study |
+| `organ_segmentation.ipynb` | data analysis, all experiments, results and the DINOv3 study |
 | `sumbission_example.ipynb` | Kaggle submission: 5-fold ensemble over the test set |
 | `train_2d.py` | SegFormer / U-Net++ with a ResNet-34 encoder, 2D input |
 | `train_25d.py` | the same with 2.5D input (previous, current and next slice) |
