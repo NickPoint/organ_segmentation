@@ -1,0 +1,19 @@
+# environment / editor
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.claude/
+
+# data: the course dataset, not redistributed
+hw3_dataset/
+
+# model weights: too large for git, published as a GitHub release
+*.pt
+release_models/
+
+# not part of the submission
+archive/
+logs/
+results/1799902-dino_unet_train_dino_25d/
+results/smoketest/
+submission*.csv

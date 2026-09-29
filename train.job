@@ -1,0 +1,54 @@
+#!/bin/bash
+#SBATCH --time=02:00:00
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:tesla:1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=60G
+#SBATCH --array=0-4
+#SBATCH --output=logs/%x_%A_%a.out
+#SBATCH --error=logs/%x_%A_%a.err
+#SBATCH --requeue
+
+# Not meant to be submitted by hand: deploy.ps1 / deploy.sh submit it with what to run,
+#   sbatch --job-name=<architecture>_<script> --export=ALL,SCRIPT=<script>,ARCHITECTURE=<architecture> train.job
+# The job name (%x) becomes part of the log files, and of the results folder below, so both say what
+# was trained, e.g. unetplusplus_train_25d. Epochs, batch size and learning rate are set at the bottom.
+
+# Cross-validation: a job array with one task per fold. Task k validates on fold k and trains
+# on the other folds; %A in the log names is the array's job id and %a the fold.
+# To run only some folds, submit by hand with the range overridden: sbatch --array=0 ... train.job
+# (--array=0-4%2 runs at most 2 folds at the same time).
+
+# --gres=gpu:tesla:1 can land on any of falcon[1-6], and their cores-per-GPU /
+# mem-per-GPU ratios differ (4 cores & 80G on falcon1,2 / 8 cores & 80G on falcon3 /
+# 4 cores & 60G on falcon4-6). --cpus-per-task=4 and --mem=60G are the values that
+# stay valid no matter which node you get. --time is still a guess -- benchmark
+# with --epochs 1 first and size it from that.
+
+: "${SCRIPT:?SCRIPT is not set - submit with: deploy.ps1 submit -TrainScript <script> -Architecture <architecture>}"
+: "${ARCHITECTURE:?ARCHITECTURE is not set - submit with: deploy.ps1 submit -TrainScript <script> -Architecture <architecture>}"
+
+mkdir -p logs
+
+module load python
+source .venv/bin/activate   # adjust to wherever the cluster venv actually lives
+
+FOLD=$SLURM_ARRAY_TASK_ID
+RUN_DIR="results/${SLURM_ARRAY_JOB_ID}-${SLURM_JOB_NAME}/fold${FOLD}"
+mkdir -p "$RUN_DIR"
+
+RESUME_ARGS=""
+if [ -f "$RUN_DIR/checkpoint_last.pt" ]; then
+    RESUME_ARGS="--resume $RUN_DIR/checkpoint_last.pt"
+fi
+
+srun python "$SCRIPT" \
+    --data_dir ./hw3_dataset \
+    --output_dir "$RUN_DIR" \
+    --fold "$FOLD" \
+    --architecture "$ARCHITECTURE" \
+    --epochs 60 \
+    --batch_size 32 \
+    --lr 1e-4 \
+    --num_workers "$SLURM_CPUS_PER_TASK" \
+    $RESUME_ARGS

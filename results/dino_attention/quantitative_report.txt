@@ -1,0 +1,76 @@
+DINOv3 ViT-S/16 (vit_small_patch16_dinov3.lvd1689m, frozen, no medical fine-tuning)
+288x288 input = 266x266 MRI + 11 px DivisiblePad; 18x18 = 324 patches of 16x16
+averaged over 108 organ-containing slices from 12 patients [2, 9, 17, 20, 24, 29, 33, 45, 46, 50, 57, 60]
+
+1) WHERE DOES CLS ATTENTION MASS GO? (share = fraction of the 324-patch CLS attention,
+   area = fraction of the input area; enrichment = share / area, 1.0 = chance)
+
+region           area  share(blk11)   enrich  share(rollout)   enrich
+padding        0.1469        0.0155     0.11          0.1391     0.95
+stomach        0.0062        0.0115     1.85          0.0062     1.01
+small_bowel    0.0158        0.0290     1.84          0.0142     0.90
+large_bowel    0.0145        0.0289     1.99          0.0127     0.88
+body           0.3752        0.7836     2.09          0.4389     1.17
+air            0.4414        0.1314     0.30          0.3888     0.88
+ALL ORGANS     0.0365        0.0694     1.90          0.0332     0.91
+
+1b) ARE ORGANS PREFERRED OVER THE BODY TISSUE AROUND THEM? (air and padding excluded,
+    so this asks whether the organs are special or only the body is; 1.0 = no preference)
+
+    within-tissue organ enrichment (block 11 CLS) = 0.96 +- 0.35 (std over slices)
+
+2) BOUNDARY VS INTERIOR (3x3 erosion/dilation of the patch-level organ mask;
+   mean attention PER PATCH, uniform attention would be 1/324 = 0.00309)
+
+   organ patch = patch is >= 50% organ:
+     boundary patches : 0.00625  (2.03x uniform, n=101 slices)
+     interior patches : 0.00516  (1.67x uniform, n=8 slices that have any interior patch at all)
+     surrounding ring : 0.00614  (1.99x uniform)
+     everything else  : 0.00266  (0.86x uniform; includes air and padding)
+     boundary / interior ratio = 1.21
+
+   organ patch = patch is >= 10% organ:
+     boundary patches : 0.00637  (2.06x uniform, n=108 slices)
+     interior patches : 0.00541  (1.75x uniform, n=53 slices that have any interior patch at all)
+     surrounding ring : 0.00620  (2.01x uniform)
+     everything else  : 0.00246  (0.80x uniform; includes air and padding)
+     boundary / interior ratio = 1.18
+
+3) PER-HEAD BEHAVIOUR, block 11 (share of that head's CLS->patch mass)
+
+head    padding share   enrich  organ share   enrich
+0              0.0044     0.03       0.0603     1.65
+1              0.0054     0.04       0.0834     2.29
+2              0.0047     0.03       0.0724     1.98
+3              0.0356     0.24       0.0947     2.60
+4              0.0044     0.03       0.0611     1.67
+5              0.0552     0.38       0.0439     1.20
+mean           0.0183                0.0693
+
+4) DEPTH (head-mean CLS attention; prefix mass = CLS row mass on CLS + 4 storage tokens,
+   i.e. attention that never reaches the image at all)
+
+block    organ enrich  padding enrich  prefix mass
+0                0.57            1.01        0.000
+1                1.00            2.24        0.464
+2                1.22            0.98        0.771
+3                2.18            0.55        0.668
+4                2.33            0.41        0.451
+5                2.18            0.28        0.461
+6                1.72            0.77        0.445
+7                2.32            0.19        0.519
+8                2.06            0.15        0.378
+9                1.89            0.56        0.525
+10               2.00            0.20        0.310
+11               2.06            0.11        0.308
+
+5) WHERE THE 5 STRONGEST PATCHES OF EACH MAP LAND (each patch assigned to the region that
+   covers most of it; 540 patches in total per map)
+
+region         block 11 CLS   rollout
+padding                0.00      0.24
+stomach                0.00      0.00
+small_bowel            0.01      0.01
+large_bowel            0.01      0.01
+body                   0.96      0.47
+air                    0.01      0.27
